@@ -19,8 +19,8 @@ struct HeroBannerContentGroup: ContentGroup {
         viewModel.elements.isNotEmpty
     }
 
-    init(library: RecentlyAddedLibrary = RecentlyAddedLibrary()) {
-        self.viewModel = PagingLibraryViewModel(library: library, pageSize: 8)
+    init() {
+        self.viewModel = PagingLibraryViewModel(library: RecentlyAddedLibrary(), pageSize: 8)
     }
 
     func body(with viewModel: PagingLibraryViewModel<RecentlyAddedLibrary>) -> some View {
