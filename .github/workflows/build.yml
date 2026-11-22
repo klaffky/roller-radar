@@ -1,0 +1,85 @@
+name: Build unsigned IPA
+
+on:
+  push:
+    branches: [ main, 'claude/**' ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    name: iOS (unsigned)
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select newest Xcode
+        run: |
+          set -euo pipefail
+          ls -d /Applications/Xcode*.app
+          XCODE=$(ls -d /Applications/Xcode_*.app | grep -v -i beta | sort -V | tail -1)
+          echo "Using $XCODE"
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          xcodebuild -version
+
+      - name: Cache Swift packages
+        uses: actions/cache@v4
+        with:
+          path: build/SourcePackages
+          key: spm-${{ runner.os }}-${{ hashFiles('Swiftfin.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-
+
+      - name: Build archive (no signing)
+        run: |
+          mkdir -p build
+          status=0
+          xcodebuild archive \
+            -project Swiftfin.xcodeproj \
+            -scheme Swiftfin \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/Swiftfin.xcarchive \
+            -clonedSourcePackagesDirPath build/SourcePackages \
+            -skipMacroValidation \
+            -skipPackagePluginValidation \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            > build/xcodebuild.log 2>&1 || status=$?
+          grep -E "error:|\*\* (ARCHIVE|BUILD) " build/xcodebuild.log | head -100 || true
+          exit $status
+
+      - name: Show log tail on failure
+        if: failure()
+        run: tail -150 build/xcodebuild.log || true
+
+      - name: Package IPA
+        run: |
+          set -euo pipefail
+          mkdir -p build/ipa/Payload
+          cp -R build/Swiftfin.xcarchive/Products/Applications/*.app build/ipa/Payload/
+          cd build/ipa
+          zip -qry ../Swiftfin-unsigned.ipa Payload
+          ls -lh ../Swiftfin-unsigned.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Swiftfin-unsigned-ipa
+          path: build/Swiftfin-unsigned.ipa
+          if-no-files-found: error
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: xcodebuild-log
+          path: build/xcodebuild.log
