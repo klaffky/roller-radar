@@ -53,6 +53,8 @@ struct DefaultContentGroupProvider: ContentGroupProvider {
 
         cinematicSelectionContentGroup
         #else
+        HeroBannerContentGroup()
+
         PosterGroup(
             library: ResumeItemsLibrary(mediaTypes: [.video]),
             posterDisplayType: .landscape,
