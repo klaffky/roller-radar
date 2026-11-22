@@ -17,6 +17,9 @@ struct DefaultContentGroupProvider: ContentGroupProvider {
     var userSession: UserSession?
 
     let displayTitle: String = L10n.home
+
+    /// Number of genre rows shown on the home screen
+    private let homeGenreRowCount = 5
     let id: String = "default-content-group-provider"
 
     func makeGroups(environment: Empty) async throws -> [any ContentGroup] {
@@ -39,11 +42,40 @@ struct DefaultContentGroupProvider: ContentGroupProvider {
                 using: \.collectionType
             )
 
-        return _makeGroups(userViews: resolvedUserViews)
+        let genres = (try? await homeGenres(userSession: userSession)) ?? []
+
+        return _makeGroups(userViews: resolvedUserViews, genres: genres)
+    }
+
+    /// Movie/series genres ordered by how many items they contain.
+    /// Falls back to a random order if the server does not report counts.
+    private func homeGenres(userSession: UserSession) async throws -> [String] {
+        var parameters = Paths.GetGenresParameters()
+        parameters.userID = userSession.user.id
+        parameters.includeItemTypes = [.movie, .series]
+        parameters.fields = [.itemCounts]
+        parameters.enableImages = false
+
+        let response = try await userSession.client.send(Paths.getGenres(parameters: parameters))
+        let genres = response.value.items ?? []
+
+        let counted = genres.map { genre in
+            (name: genre.name ?? "", count: (genre.movieCount ?? 0) + (genre.seriesCount ?? 0) + (genre.childCount ?? 0))
+        }
+        .filter { $0.name.isNotEmpty }
+
+        if counted.contains(where: { $0.count > 0 }) {
+            return counted
+                .filter { $0.count > 0 }
+                .sorted { $0.count > $1.count }
+                .map(\.name)
+        }
+
+        return counted.map(\.name).shuffled()
     }
 
     @ContentGroupBuilder
-    private func _makeGroups(userViews: [BaseItemDto]) -> [any ContentGroup] {
+    private func _makeGroups(userViews: [BaseItemDto], genres: [String]) -> [any ContentGroup] {
 
         #if os(tvOS)
         let cinematicSelectionContentGroup = CinematicSelectionContentGroup(
@@ -106,6 +138,41 @@ struct DefaultContentGroupProvider: ContentGroupProvider {
             posterDisplayType: .landscape,
             posterSize: .small
         )
+
+        PillGroup(
+            displayTitle: L10n.genres,
+            id: "home-genres",
+            elements: genres.map(ItemGenre.init(stringLiteral:))
+        ) { router, genre in
+            router.route(
+                to: .contentGroup(
+                    provider: ItemTypeContentGroupProvider(
+                        itemTypes: [BaseItemKind.movie, .series],
+                        parent: BaseItemDto(name: genre.displayTitle),
+                        environment: .init(filters: .init(genres: [genre]))
+                    )
+                )
+            )
+        }
+
+        genres
+            .prefix(homeGenreRowCount)
+            .map { genre in
+                PosterGroup(
+                    id: "home-genre-\(genre)",
+                    library: ItemLibrary(
+                        parent: BaseItemDto(name: genre),
+                        filters: .init(
+                            sortBy: [.communityRating],
+                            sortOrder: [.descending]
+                        ),
+                        staticFilters: .init(
+                            genres: [ItemGenre(stringLiteral: genre)],
+                            itemTypes: [.movie, .series]
+                        )
+                    )
+                )
+            }
 
         userViews
             .map(LatestInLibrary.init)
