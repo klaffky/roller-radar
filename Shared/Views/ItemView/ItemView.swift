@@ -61,6 +61,10 @@ struct ItemView: View {
             if isCompact {
                 return provider.item.type == .movie
                     || provider.item.type == .series
+                    || provider.item.type == .boxSet
+                    || provider.item.type == .episode
+                    || provider.item.type == .video
+                    || provider.item.type == .musicVideo
                     || provider.item.type == .program
                     || provider.item.type == .liveTvProgram
             }

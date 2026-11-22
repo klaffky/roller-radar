@@ -29,7 +29,7 @@ extension ItemView {
             @StoredValue(.User.itemViewAttributes)
             private var attributes
 
-            private let headerAspectRatio = 1.6
+            private let headerAspectRatio = 1.0
 
             @ViewBuilder
             private var logo: some View {
@@ -37,7 +37,7 @@ extension ItemView {
                     provider.item.imageSource(
                         .logo,
                         itemID: provider.item.id,
-                        environment: ImageSourceOptions(maxHeight: 70)
+                        environment: ImageSourceOptions(maxHeight: 90)
                     )
                 )
                 .placeholder { _ in
@@ -53,7 +53,7 @@ extension ItemView {
                         .foregroundStyle(.primary)
                 }
                 .aspectRatio(contentMode: .fit)
-                .frame(height: 70, alignment: .bottom)
+                .frame(height: 90, alignment: .bottom)
                 .accessibilityLabel(provider.item.displayTitle)
                 .accessibilityRemoveTraits(.isImage)
             }
@@ -73,7 +73,7 @@ extension ItemView {
                         MetadataHStack(item: provider.item)
 
                         ItemView.ActionBar(provider: provider)
-                            .frame(maxWidth: 300)
+                            .frame(maxWidth: 360)
 
                         ItemView.Description(item: provider.item)
 

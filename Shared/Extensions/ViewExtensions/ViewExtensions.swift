@@ -337,12 +337,22 @@ extension View {
     func posterCornerRadius(
         _ type: PosterDisplayType
     ) -> some View {
+        #if os(iOS)
+        // Softer, Apple TV-style rounding on iOS
+        switch type {
+        case .landscape:
+            cornerRadius(ratio: 1 / 18, of: \.width)
+        case .portrait, .square:
+            cornerRadius(ratio: 0.07, of: \.width)
+        }
+        #else
         switch type {
         case .landscape:
             cornerRadius(ratio: 1 / 30, of: \.width)
         case .portrait, .square:
             cornerRadius(ratio: 0.0375, of: \.width)
         }
+        #endif
     }
 
     @ViewBuilder

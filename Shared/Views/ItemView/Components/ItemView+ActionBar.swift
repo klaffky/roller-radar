@@ -39,7 +39,7 @@ extension ItemView {
                 if provider.item.presentPlayButton {
                     PlayButton(provider: provider)
                         .coordinatedFocus(ItemView.Component.play, selection: $focusedButton)
-                        .frame(height: UIDevice.isTV ? 75 : 44)
+                        .frame(height: UIDevice.isTV ? 75 : 50)
                 }
 
                 ItemActionButtons(
